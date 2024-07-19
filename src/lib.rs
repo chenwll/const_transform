@@ -15,6 +15,9 @@ use swc_core::{
         visit::{VisitMut, VisitMutWith},
     },
 };
+extern crate wasm_bindgen;
+use wasm_bindgen::prelude::*;
+
 pub struct ConstReplacer<'a> {
     replaced_value: Value,
     replaced_name: &'a str,
@@ -37,8 +40,44 @@ impl<'a> ConstReplacer<'a> {
         }
     }
 }
+impl VisitMut for ConstReplacer<'_> {
+    fn visit_mut_var_decl(&mut self, var_decl: &mut VarDecl) {
+        // 检查变量声明类型是否为 `const`
+        if var_decl.kind == VarDeclKind::Const {
+            for declarator in &mut var_decl.decls {
+                // 判断变量名是否与要替换的名称相同
+                let is_replaced_name = if let Pat::Ident(ref ident) = declarator.name {
+                    ident.sym.as_ref() == self.replaced_name
+                } else {
+                    false
+                };
 
-fn create_ast(value: Value) -> Expr {
+                // 如果变量名匹配且有初始化表达式，则进行检查和可能的替换
+                if let Some(init_expr) = &mut declarator.init {
+                    // 函数表达式，则递归处理
+                    init_expr.visit_mut_with(self);
+                    if is_replaced_name {
+                        match **init_expr {
+                            // 字面量的情况下，替换为新的数字字面量
+                            Expr::Lit(Lit::Str(_))
+                            | Expr::Lit(Lit::Bool(_))
+                            | Expr::Array(_)
+                            | Expr::Lit(Lit::Null(_))
+                            | Expr::Lit(Lit::Num(_)) => {
+                                let value = self.replaced_value.clone();
+                                *init_expr = Box::new(create_ast(value));
+                            }
+                            // 其他类型表达式，包括箭头函数，不进行替换
+                            _ => {}
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+pub fn create_ast(value: Value) -> Expr {
     match value {
         Value::Number(num) => {
             if let Some(f) = num.as_f64() {
@@ -102,45 +141,9 @@ fn create_ast(value: Value) -> Expr {
     }
 }
 
-impl VisitMut for ConstReplacer<'_> {
-    fn visit_mut_var_decl(&mut self, var_decl: &mut VarDecl) {
-        // 检查变量声明类型是否为 `const`
-        if var_decl.kind == VarDeclKind::Const {
-            for declarator in &mut var_decl.decls {
-                // 判断变量名是否与要替换的名称相同
-                let is_replaced_name = if let Pat::Ident(ref ident) = declarator.name {
-                    ident.sym.as_ref() == self.replaced_name
-                } else {
-                    false
-                };
-
-                // 如果变量名匹配且有初始化表达式，则进行检查和可能的替换
-                if let Some(init_expr) = &mut declarator.init {
-                    // 函数表达式，则递归处理
-                    init_expr.visit_mut_with(self);
-                    if is_replaced_name {
-                        match **init_expr {
-                            // 字面量的情况下，替换为新的数字字面量
-                            Expr::Lit(Lit::Str(_))
-                            | Expr::Lit(Lit::Bool(_))
-                            | Expr::Array(_)
-                            | Expr::Lit(Lit::Null(_))
-                            | Expr::Lit(Lit::Num(_)) => {
-                                let value = self.replaced_value.clone();
-                                *init_expr = Box::new(create_ast(value));
-                            }
-                            // 其他类型表达式，包括箭头函数，不进行替换
-                            _ => {}
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-fn main() {
-    let source = "const a = 1; const getName = () => {const a = 9;}";
+#[wasm_bindgen]
+pub fn const_replace(source: &str, config: &str) -> String {
+    // let source = "const a = 1; const getName = () => {const b = 1;const a = 9;}";
     let cm = Rc::new(SourceMap::default());
     let fm = cm.new_source_file(
         Lrc::new(FileName::Custom("input.js".to_string())),
@@ -159,11 +162,13 @@ fn main() {
 
     let mut module = parser.parse_module().unwrap();
 
-    let mut replacer = ConstReplacer::new(
-        "{\"replaced_name\": \"a\", \"replaced_value\": {\"name\": \"cwl\", \"value\": [1,2,3]}}",
-    );
+    // "{\"replaced_name\": \"a\", \"replaced_value\": {\"name\": \"cwl\", \"value\": [1,2,3]}}"
+    let mut replacer = ConstReplacer::new(config);
 
     module.visit_mut_with(&mut replacer);
 
-    println!("{}", to_code_default(cm, Some(&comments), &module));
+    // println!("{}", to_code_default(cm, Some(&comments), &module));
+
+    let res = to_code_default(Default::default(), Some(&comments), &module);
+    res
 }
