@@ -11,7 +11,7 @@ use swc_core::{
     ecma::{
         ast::*,
         codegen::to_code_default,
-        parser::{lexer::Lexer, EsSyntax, Parser, Syntax},
+        parser::{lexer::Lexer, EsSyntax, Parser, Syntax, TsSyntax},
         visit::{VisitMut, VisitMutWith},
     },
 };
@@ -152,7 +152,10 @@ pub fn const_replace(source: &str, config: &str) -> String {
 
     let comments = SingleThreadedComments::default();
     let lexer = Lexer::new(
-        Syntax::Es(EsSyntax::default()),
+        Syntax::Typescript(TsSyntax {
+            tsx: false,
+            ..Default::default()
+        }),
         EsVersion::EsNext,
         SourceFileInput::from(&*fm),
         Some(&comments),
