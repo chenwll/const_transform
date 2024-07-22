@@ -1,0 +1,11 @@
+{
+  "name": "const-replace",
+  "version": "0.1.0",
+  "files": [
+    "const_replace_bg.wasm",
+    "const_replace.js",
+    "const_replace.d.ts"
+  ],
+  "main": "const_replace.js",
+  "types": "const_replace.d.ts"
+}
