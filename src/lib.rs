@@ -62,6 +62,7 @@ impl VisitMut for ConstReplacer<'_> {
                             Expr::Lit(Lit::Str(_))
                             | Expr::Lit(Lit::Bool(_))
                             | Expr::Array(_)
+                            | Expr::Object(_)
                             | Expr::Lit(Lit::Null(_))
                             | Expr::Lit(Lit::Num(_)) => {
                                 let value = self.replaced_value.clone();
@@ -144,7 +145,7 @@ pub fn create_ast(value: Value) -> Expr {
 #[wasm_bindgen]
 pub fn const_replace(source: &str, config: &str) -> String {
     // let source = "const a = 1; const getName = () => {const b = 1;const a = 9;}";
-    let cm = Rc::new(SourceMap::default());
+    let cm: Lrc<SourceMap> = Rc::new(SourceMap::default());
     let fm = cm.new_source_file(
         Lrc::new(FileName::Custom("input.js".to_string())),
         source.into(),
