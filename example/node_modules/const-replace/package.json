@@ -1,6 +1,6 @@
 {
   "name": "const-replace",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "files": [
     "const_replace_bg.wasm",
     "const_replace.js",

@@ -11,7 +11,7 @@ use swc_core::{
     ecma::{
         ast::*,
         codegen::to_code_default,
-        parser::{lexer::Lexer, EsSyntax, Parser, Syntax, TsSyntax},
+        parser::{lexer::Lexer, Parser, Syntax, TsSyntax},
         visit::{VisitMut, VisitMutWith},
     },
 };
@@ -122,9 +122,10 @@ pub fn create_ast(value: Value) -> Expr {
                 .iter()
                 .map(|(key, value)| {
                     PropOrSpread::Prop(Box::new(Prop::KeyValue(KeyValueProp {
-                        key: PropName::Ident(IdentName {
+                        key: PropName::Str(Str {
                             span: DUMMY_SP,
-                            sym: key.clone().into(),
+                            value: key.clone().into(),
+                            raw: Some(format!("'{}'", key).into())
                         }),
                         value: Box::new(create_ast(value.clone())),
                     })))
