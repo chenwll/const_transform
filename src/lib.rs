@@ -1,6 +1,6 @@
 use crate::swc_core::common::sync::Lrc;
 use serde::{Deserialize, Serialize};
-use serde_json::{self, Value};
+use serde_json::{self, Map, Value};
 use std::rc::Rc;
 use swc_core::{
     self,
@@ -22,22 +22,21 @@ pub struct ConstReplacer<'a> {
     replaced_value: Value,
     replaced_name: &'a str,
 }
+
 #[derive(Serialize, Deserialize, Debug)]
 pub struct JsonValue<'a> {
     replaced_name: &'a str,
     replaced_value: Value,
 }
 impl<'a> ConstReplacer<'a> {
-    pub fn new(config: &'a str) -> ConstReplacer {
-        // TODO: JSON -> Rust 结构体 -> AST
-        // TODO: 最好不要用unwrap进行错误处理
-        let config: JsonValue = serde_json::from_str(config).unwrap();
+    pub fn new(config: &'a str) -> Result<ConstReplacer, JsError> {
+        let config: JsonValue = serde_json::from_str(config).map_err(|e| JsError::new(&format!("config parse error: {}", e)))?;
         let replaced_name = config.replaced_name;
         let replaced_value = config.replaced_value;
-        ConstReplacer {
+        Ok(ConstReplacer {
             replaced_name: replaced_name,
             replaced_value: replaced_value,
-        }
+        })
     }
 }
 impl VisitMut for ConstReplacer<'_> {
@@ -144,8 +143,7 @@ pub fn create_ast(value: Value) -> Expr {
 }
 
 #[wasm_bindgen]
-pub fn const_replace(source: &str, config: &str) -> String {
-    // let source = "const a = 1; const getName = () => {const b = 1;const a = 9;}";
+pub fn const_replace(source: &str, config: &str) -> Result<String, JsError> {
     let cm: Lrc<SourceMap> = Rc::new(SourceMap::default());
     let fm = cm.new_source_file(
         Lrc::new(FileName::Custom("input.js".to_string())),
@@ -167,13 +165,25 @@ pub fn const_replace(source: &str, config: &str) -> String {
 
     let mut module = parser.parse_module().unwrap();
 
-    // "{\"replaced_name\": \"a\", \"replaced_value\": {\"name\": \"cwl\", \"value\": [1,2,3]}}"
-    let mut replacer = ConstReplacer::new(config);
+    let mut replacer = ConstReplacer::new(config)?;
 
     module.visit_mut_with(&mut replacer);
 
-    // println!("{}", to_code_default(cm, Some(&comments), &module));
-
     let res = to_code_default(Default::default(), Some(&comments), &module);
-    res
+    Ok(res)
+}
+
+
+#[wasm_bindgen]
+pub fn replace_json(source: &str, config: &str) -> Result<String, JsError> {
+    let mut json_value: Map<String, Value> = serde_json::from_str(source).unwrap();
+     let replacer = ConstReplacer::new(config)?;
+     if json_value.contains_key(replacer.replaced_name) {
+        json_value[replacer.replaced_name] = replacer.replaced_value;
+
+        let updated_json = serde_json::to_string_pretty(&json_value).unwrap();
+        Ok(updated_json)
+    } else {
+        Err(JsError::new(&format!("Key '{}' does not exist in the JSON", replacer.replaced_name)))
+    }
 }

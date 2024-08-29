@@ -32,6 +32,13 @@ const config = JSON.stringify({
  * @param {JSON} config
  */
 const content = pkg.const_replace(source, config);
+
+/**
+ * @description 替换json信息
+ * @param {string} source 源文件
+ * @param {JSON} config
+ */
+const content = pkg.json_replace(source, config);
 ```
 
 # 例子
