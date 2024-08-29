@@ -1,11 +1,13 @@
-const pkg = require('../pkg/const_replace');
-const source = "const a = {name: 'cwl', age: 18}; const getName = () => {const b = 2; const a = 90;}"
+// const pkg = require('../pkg/const_replace');
+const {constReplace} = require('../node_pkg/index.js');
+const source = "const name = {hhh: 'test'}, body=11;"
 const config = JSON.stringify({
-    replaced_name: 'a',
+    replaced_named: 'name',
     replaced_value: {
         'hcg-op': 'cwl'
-    }
+    },
+    name: 'cwl',
 })
 
-const content = pkg.const_replace(source, config)
+const content = constReplace(source, config)
 console.log(content);
